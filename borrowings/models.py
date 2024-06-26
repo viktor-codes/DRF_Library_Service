@@ -9,7 +9,7 @@ class Borrowing(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     borrowing_date = models.DateField(auto_now_add=True)
     expected_returning_date = models.DateField()
-    actual_returned_date = models.DateField(null=True, blank=True)
+    actual_returning_date = models.DateField(null=True, blank=True)
 
     class Meta:
         constraints = [
