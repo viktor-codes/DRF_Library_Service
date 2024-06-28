@@ -1,7 +1,7 @@
 from pathlib import Path
 from datetime import timedelta
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+# Build paths inside the project like this: BASE_DIR / "subdir".
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -11,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = "django-insecure-4^7+18&9y4_hl0kk$u=+di663*-2w(cufb84nl909xi7l5aa)w"
 
-# SECURITY WARNING: don't run with debug turned on in production!
+# SECURITY WARNING: don"t run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = []
@@ -123,8 +123,8 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }

@@ -9,8 +9,8 @@ class BookViewSet(viewsets.ModelViewSet):
     serializer_class = BookSerializer
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'destroy']:
+        if self.action in ["create", "update", "destroy"]:
             return [IsAdminUser()]
-        elif self.action in ['list', 'retrieve']:
+        elif self.action in ["list", "retrieve"]:
             return [AllowAny()]
         return super().get_permissions()
