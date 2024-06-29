@@ -5,22 +5,24 @@ from .serializers import BorrowingReadSerializer, BorrowingCreateSerializer
 
 
 class BorrowingListView(generics.ListAPIView):
-    queryset = Borrowing.objects.all()
     serializer_class = BorrowingReadSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        queryset = Borrowing.objects.all()
         user = self.request.user
+        queryset = Borrowing.objects.all()
+
         if not user.is_staff:
             queryset = queryset.filter(user=user)
 
+        user_id = self.request.query_params.get('user_id')
+        if user.is_staff and user_id:
+            queryset = queryset.filter(user_id=user_id)
+
         is_active = self.request.query_params.get("is_active")
         if is_active is not None:
-            if is_active.lower() == "true":
-                queryset = queryset.filter(actual_returning_date__isnull=True)
-            else:
-                queryset = queryset.filter(actual_returning_date__isnull=False)
+            is_active = is_active.lower() == "true"
+            queryset = queryset.filter(actual_returning_date__isnull=is_active)
 
         return queryset
 
