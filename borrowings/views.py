@@ -1,5 +1,9 @@
-from rest_framework import generics
+from django.utils import timezone
+from rest_framework import generics, status
+from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
+
 from .models import Borrowing
 from .serializers import BorrowingReadSerializer, BorrowingCreateSerializer
 
@@ -40,3 +44,23 @@ class BorrowingCreateView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+
+class BorrowingReturnView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            borrowing = Borrowing.objects.get(pk=pk, user=request.user)
+        except Borrowing.DoesNotExist:
+            return Response({'error': 'Borrowing not found or you do not have permission to return this borrowing.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if borrowing.actual_returning_date:
+            return Response({'error': 'This borrowing has already been returned.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        borrowing.actual_returning_date = timezone.now()
+        borrowing.book.inventory += 1
+        borrowing.book.save()
+        borrowing.save()
+
+        return Response({'message': 'Borrowing returned successfully.'}, status=status.HTTP_200_OK)
