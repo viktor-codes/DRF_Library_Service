@@ -14,13 +14,12 @@ class Borrowing(models.Model):
     class Meta:
         constraints = [
             CheckConstraint(
-                check=Q(borrowing_date__lt=F("expected_returning_date")),
-                name="borrow_date_before_expected_return_date"
+                check=Q(borrowing_date__lte=F('expected_returning_date')),
+                name='borrow_date_before_or_equal_expected'
             ),
             CheckConstraint(
-                check=Q(actual_returning_date__isnull=True) | Q(
-                    actual_returning_date__gt=F("borrowing_date")),
-                name="actual_return_date_after_borrow_date"
+                check=Q(actual_returning_date__gte=F('borrowing_date')),
+                name='actual_return_date_after_borrow_date'
             )
         ]
 
