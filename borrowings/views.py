@@ -2,8 +2,8 @@ from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
-
+from django.shortcuts import get_object_or_404
+from rest_framework.decorators import api_view
 from .models import Borrowing
 from .serializers import BorrowingReadSerializer, BorrowingCreateSerializer
 
@@ -46,21 +46,23 @@ class BorrowingCreateView(generics.CreateAPIView):
         serializer.save(user=self.request.user)
 
 
-class BorrowingReturnView(APIView):
-    permission_classes = [IsAuthenticated]
+@api_view(['PATCH'])
+def return_borrowing(request, pk):
+    borrowing = get_object_or_404(Borrowing, pk=pk)
 
-    def post(self, request, pk):
-        try:
-            borrowing = Borrowing.objects.get(pk=pk, user=request.user)
-        except Borrowing.DoesNotExist:
-            return Response({'error': 'Borrowing not found or you do not have permission to return this borrowing.'}, status=status.HTTP_404_NOT_FOUND)
-
+    if request.method == 'PATCH':
+        # Check if borrowing has already been returned
         if borrowing.actual_returning_date:
-            return Response({'error': 'This borrowing has already been returned.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Borrowing has already been returned."}, status=status.HTTP_400_BAD_REQUEST)
 
-        borrowing.actual_returning_date = timezone.now()
-        borrowing.book.inventory += 1
-        borrowing.book.save()
+        # Update the borrowing instance
+        borrowing.actual_returning_date = timezone.now().date()
         borrowing.save()
 
-        return Response({'message': 'Borrowing returned successfully.'}, status=status.HTTP_200_OK)
+        # Add 1 to book inventory
+        borrowing.book.inventory += 1
+        borrowing.book.save()
+
+        # Serialize and return response
+        serializer = BorrowingReadSerializer(borrowing)
+        return Response(serializer.data)
