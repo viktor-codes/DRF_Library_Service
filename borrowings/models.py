@@ -4,6 +4,12 @@ from books.models import Book
 from users.models import User
 
 
+from django.dispatch import receiver
+from django.db.models.signals import post_save
+
+from helpers.telegram_helper import send_message
+
+
 class Borrowing(models.Model):
     book = models.ForeignKey(Book, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -25,3 +31,10 @@ class Borrowing(models.Model):
 
     def __str__(self):
         return f"{self.user} borrowed {self.book}"
+
+
+@receiver(post_save, sender=Borrowing)
+def send_notification_on_borrowing_creation(sender, instance, created, **kwargs):
+    if created:
+        message = f"New borrowing created:\nBook: {instance.book.title}\nUser: {instance.user}\nBorrowing Date: {instance.borrowing_date}\nExpected Returning Date: {instance.expected_returning_date}"
+        send_message(message)
