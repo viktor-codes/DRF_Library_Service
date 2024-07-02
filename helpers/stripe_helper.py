@@ -22,11 +22,11 @@ def create_payment_session(
             )
 
         success_url = (
-            request.build_absolute_uri(reverse("payment-success"))
+            request.build_absolute_uri(reverse("borrowings:payment-success"))
             + "?session_id={CHECKOUT_SESSION_ID}"
         )
         cancel_url = (
-            request.build_absolute_uri(reverse("payment-cancel"))
+            request.build_absolute_uri(reverse("borrowings:payment-cancel"))
             + "?session_id={CHECKOUT_SESSION_ID}"
         )
 

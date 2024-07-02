@@ -1,27 +1,26 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from .views import (
-    BorrowingListView,
-    BorrowingDetailView,
-    BorrowingCreateView,
-    return_borrowing,
+    BorrowingViewSet,
     PaymentListCreateView,
     PaymentDetailView,
     payment_success,
     payment_cancel,
 )
 
+router = DefaultRouter()
+router.register(r"borrowings", BorrowingViewSet, basename="borrowings")
+
+app_name = "borrowings"
 
 urlpatterns = [
-    path("", BorrowingListView.as_view(), name="borrowing-list"),
-    path("create/", BorrowingCreateView.as_view(), name="borrowing-create"),
-    path("<int:pk>/", BorrowingDetailView.as_view(), name="borrowing-detail"),
-    path("<int:pk>/return/", return_borrowing, name="borrowing-return"),
+    path("", include(router.urls)),
     path("payments/", PaymentListCreateView.as_view(), name="payment-list"),
     path(
         "payments/<int:pk>/",
         PaymentDetailView.as_view(),
         name="payment-detail",
     ),
-    path("payment/success/", payment_success, name="payment-success"),
-    path("payment/cancel/", payment_cancel, name="payment-cancel"),
+    path("success/", payment_success, name="payment-success"),
+    path("cancel/", payment_cancel, name="payment-cancel"),
 ]

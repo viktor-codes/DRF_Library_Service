@@ -3,7 +3,6 @@ from django.utils import timezone
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view
 from .models import Borrowing, Payment
 from .serializers import (
@@ -11,24 +10,50 @@ from .serializers import (
     BorrowingCreateSerializer,
     PaymentSerializer,
 )
+from rest_framework import viewsets, mixins
+from rest_framework.decorators import action
 from helpers.stripe_helper import create_payment_session
+from helpers.telegram_helper import send_message
 
 
-class BorrowingListView(generics.ListAPIView):
-    serializer_class = BorrowingReadSerializer
+class BorrowingViewSet(
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    viewsets.GenericViewSet,
+):
+    queryset = Borrowing.objects.all()
     permission_classes = [IsAuthenticated]
+    serializer_class = BorrowingReadSerializer
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return BorrowingCreateSerializer
+        return BorrowingReadSerializer
+
+    def perform_create(self, serializer):
+        borrowing = serializer.save(user=self.request.user)
+
+        # Reduce book inventory by 1
+        borrowing.book.inventory -= 1
+        borrowing.book.save()
+
+        create_payment_session(borrowing, self.request)
 
     def get_queryset(self):
         user = self.request.user
         queryset = Borrowing.objects.all()
 
+        # Filter by user if not staff
         if not user.is_staff:
             queryset = queryset.filter(user=user)
 
+        # Filter by user_id if staff
         user_id = self.request.query_params.get("user_id")
         if user.is_staff and user_id:
             queryset = queryset.filter(user_id=user_id)
 
+        # Filter by is_active
         is_active = self.request.query_params.get("is_active")
         if is_active is not None:
             is_active = is_active.lower() == "true"
@@ -36,28 +61,10 @@ class BorrowingListView(generics.ListAPIView):
 
         return queryset
 
+    @action(detail=True, methods=["post"], url_path="return")
+    def return_borrowing(self, request, pk=None):
+        borrowing = self.get_object()
 
-class BorrowingDetailView(generics.RetrieveAPIView):
-    queryset = Borrowing.objects.all()
-    serializer_class = BorrowingReadSerializer
-    permission_classes = [IsAuthenticated]
-
-
-class BorrowingCreateView(generics.CreateAPIView):
-    queryset = Borrowing.objects.all()
-    serializer_class = BorrowingCreateSerializer
-    permission_classes = [IsAuthenticated]
-
-    def perform_create(self, serializer):
-        borrowing = serializer.save(user=self.request.user)
-        create_payment_session(borrowing, self.request)
-
-
-@api_view(["PATCH"])
-def return_borrowing(request, pk):
-    borrowing = get_object_or_404(Borrowing, pk=pk)
-
-    if request.method == "PATCH":
         if borrowing.actual_returning_date:
             return Response(
                 {"detail": "Borrowing has already been returned."},
@@ -70,6 +77,8 @@ def return_borrowing(request, pk):
         borrowing.book.inventory += 1
         borrowing.book.save()
 
+        fine_amount = 0
+
         if borrowing.actual_returning_date > borrowing.expected_returning_date:
             days_overdue = (
                 borrowing.actual_returning_date
@@ -81,12 +90,13 @@ def return_borrowing(request, pk):
                 * settings.FINE_MULTIPLIER
             )
 
-            create_payment_session(
-                borrowing,
-                request,
-                payment_type=Payment.Type.FINE,
-                fine_amount=fine_amount,
-            )
+            if fine_amount > 0:
+                create_payment_session(
+                    borrowing,
+                    request,
+                    payment_type=Payment.Type.FINE,
+                    fine_amount=fine_amount,
+                )
 
         serializer = BorrowingReadSerializer(borrowing)
         return Response(serializer.data)
@@ -128,9 +138,12 @@ def payment_success(request):
         payment = Payment.objects.get(session_id=session_id)
         payment.status = Payment.Status.PAID
         payment.save()
-        return Response(
-            {"message": "Payment successful"}, status=status.HTTP_200_OK
+        message = (
+            f"Payment successful for borrowing \
+                of book {payment.borrowing.book.title}"
         )
+        send_message(message)
+        return Response(message, status=status.HTTP_200_OK)
     except Payment.DoesNotExist:
         return Response(
             {"error": "Invalid session ID"}, status=status.HTTP_404_NOT_FOUND
@@ -150,6 +163,7 @@ def payment_cancel(request):
         payment = Payment.objects.get(session_id=session_id)
         payment.status = Payment.Status.PENDING
         payment.save()
+        
         return Response(
             {"message": "Payment cancelled"}, status=status.HTTP_200_OK
         )
