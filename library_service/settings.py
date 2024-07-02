@@ -1,6 +1,7 @@
 from pathlib import Path
 from datetime import timedelta
 from celery.schedules import crontab
+import os
 
 # Build paths inside the project like this: BASE_DIR / "subdir".
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -148,3 +149,7 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": crontab(hour=10, minute=0),
     },
 }
+
+
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
+STRIPE_PUBLIC_KEY = os.getenv("STRIPE_PUBLIC_KEY")
