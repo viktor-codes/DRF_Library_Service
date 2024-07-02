@@ -6,6 +6,8 @@ from .views import (
     return_borrowing,
     PaymentListCreateView,
     PaymentDetailView,
+    payment_success,
+    payment_cancel,
 )
 
 
@@ -20,4 +22,6 @@ urlpatterns = [
         PaymentDetailView.as_view(),
         name="payment-detail",
     ),
+    path("payment/success/", payment_success, name="payment-success"),
+    path("payment/cancel/", payment_cancel, name="payment-cancel"),
 ]
