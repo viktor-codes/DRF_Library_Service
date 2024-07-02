@@ -3,8 +3,17 @@ from .models import Borrowing, Payment
 from books.serializers import BookSerializer
 
 
+class PaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Payment
+        fields = "__all__"
+
+
 class BorrowingReadSerializer(serializers.ModelSerializer):
     book = BookSerializer(read_only=True)
+    payments = PaymentSerializer(
+        many=True, read_only=True, source="payment_set"
+    )
 
     class Meta:
         model = Borrowing
@@ -15,6 +24,7 @@ class BorrowingReadSerializer(serializers.ModelSerializer):
             "borrowing_date",
             "expected_returning_date",
             "actual_returning_date",
+            "payments",
         ]
 
 
@@ -39,9 +49,3 @@ class BorrowingCreateSerializer(serializers.ModelSerializer):
         borrowing.save()
 
         return borrowing
-
-
-class PaymentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Payment
-        fields = "__all__"
