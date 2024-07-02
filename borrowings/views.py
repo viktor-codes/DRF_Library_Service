@@ -1,11 +1,15 @@
 from django.utils import timezone
-from rest_framework import generics, status
+from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view
-from .models import Borrowing
-from .serializers import BorrowingReadSerializer, BorrowingCreateSerializer
+from .models import Borrowing, Payment
+from .serializers import (
+    BorrowingReadSerializer,
+    BorrowingCreateSerializer,
+    PaymentSerializer,
+)
 
 
 class BorrowingListView(generics.ListAPIView):
@@ -68,3 +72,26 @@ def return_borrowing(request, pk):
         # Serialize and return response
         serializer = BorrowingReadSerializer(borrowing)
         return Response(serializer.data)
+
+
+class PaymentListCreateView(generics.ListCreateAPIView):
+    queryset = Payment.objects.all()
+    serializer_class = PaymentSerializer
+
+    def get_queryset(self):
+        if self.request.user.is_staff:
+            return Payment.objects.all()
+        else:
+            return Payment.objects.filter(user=self.request.user)
+
+
+class PaymentDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Payment.objects.all()
+    serializer_class = PaymentSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        if self.request.user.is_staff:
+            return Payment.objects.all()
+        else:
+            return Payment.objects.filter(user=self.request.user)

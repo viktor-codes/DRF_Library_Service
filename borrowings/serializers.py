@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Borrowing
+from .models import Borrowing, Payment
 from books.serializers import BookSerializer
 
 
@@ -39,3 +39,9 @@ class BorrowingCreateSerializer(serializers.ModelSerializer):
         borrowing.save()
 
         return borrowing
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Payment
+        fields = "__all__"

@@ -4,12 +4,6 @@ from books.models import Book
 from users.models import User
 
 
-from django.dispatch import receiver
-from django.db.models.signals import post_save
-
-from helpers.telegram_helper import send_message
-
-
 class Borrowing(models.Model):
     book = models.ForeignKey(Book, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -32,18 +26,51 @@ class Borrowing(models.Model):
     def __str__(self):
         return f"{self.user} borrowed {self.book}"
 
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
 
-@receiver(post_save, sender=Borrowing)
-def send_notification_on_borrowing_creation(
-    sender, instance, created, **kwargs
-):
-    if created:
-        message = (
-            f"New borrowing created:\n"
-            f"Book: {instance.book.title}\n"
-            f"User: {instance.user}\n"
-            f"Borrowing Date: {instance.borrowing_date}\n"
-            f"Expected Returning Date: {instance.expected_returning_date}"
+        if self.actual_returning_date and self.expected_returning_date:
+            if self.actual_returning_date > self.expected_returning_date:
+                # Calculate fine amount based on days overdue
+                days_overdue = (
+                    self.actual_returning_date - self.expected_returning_date
+                ).days
+                fine_amount = (
+                    days_overdue * self.book.daily_fee * 2
+                )  # Assuming FINE_MULTIPLIER is 2
+
+                # Create fine payment
+                Payment.objects.create(
+                    status=Payment.Status.PENDING,
+                    type=Payment.Type.FINE,
+                    borrowing_id=self.id,
+                    session_url="",
+                    session_id="",
+                    money_to_pay=fine_amount,
+                    user=self.user,
+                )
+
+
+class Payment(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        PAID = "PAID", "Paid"
+
+    class Type(models.TextChoices):
+        PAYMENT = "PAYMENT", "Payment"
+        FINE = "FINE", "Fine"
+
+    status = models.CharField(
+        max_length=10, choices=Status.choices, default=Status.PENDING
+    )
+    type = models.CharField(max_length=10, choices=Type.choices)
+    borrowing_id = models.IntegerField()
+    session_url = models.URLField()
+    session_id = models.CharField(max_length=255)
+    money_to_pay = models.DecimalField(max_digits=10, decimal_places=2)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return (
+            f"{self.get_type_display()} - {self.borrowing_id} - {self.status}"
         )
-
-        send_message(message)
