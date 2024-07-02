@@ -20,7 +20,10 @@ class Migration(migrations.Migration):
             model_name="borrowing",
             constraint=models.CheckConstraint(
                 check=models.Q(
-                    ("borrowing_date__lte", models.F("expected_returning_date"))
+                    (
+                        "borrowing_date__lte",
+                        models.F("expected_returning_date"),
+                    )
                 ),
                 name="borrow_date_before_or_equal_expected",
             ),

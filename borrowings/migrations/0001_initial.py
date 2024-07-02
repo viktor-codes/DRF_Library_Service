@@ -29,11 +29,15 @@ class Migration(migrations.Migration):
                 ),
                 ("borrowing_date", models.DateField(auto_now_add=True)),
                 ("expected_returning_date", models.DateField()),
-                ("actual_returning_date", models.DateField(blank=True, null=True)),
+                (
+                    "actual_returning_date",
+                    models.DateField(blank=True, null=True),
+                ),
                 (
                     "book",
                     models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE, to="books.book"
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="books.book",
                     ),
                 ),
                 (
