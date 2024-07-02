@@ -26,30 +26,6 @@ class Borrowing(models.Model):
     def __str__(self):
         return f"{self.user} borrowed {self.book}"
 
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-
-        if self.actual_returning_date and self.expected_returning_date:
-            if self.actual_returning_date > self.expected_returning_date:
-                # Calculate fine amount based on days overdue
-                days_overdue = (
-                    self.actual_returning_date - self.expected_returning_date
-                ).days
-                fine_amount = (
-                    days_overdue * self.book.daily_fee * 2
-                )  # Assuming FINE_MULTIPLIER is 2
-
-                # Create fine payment
-                Payment.objects.create(
-                    status=Payment.Status.PENDING,
-                    type=Payment.Type.FINE,
-                    borrowing_id=self.id,
-                    session_url="",
-                    session_id="",
-                    money_to_pay=fine_amount,
-                    user=self.user,
-                )
-
 
 class Payment(models.Model):
     class Status(models.TextChoices):

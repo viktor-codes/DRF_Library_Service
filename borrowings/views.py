@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.utils import timezone
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
@@ -57,21 +58,36 @@ def return_borrowing(request, pk):
     borrowing = get_object_or_404(Borrowing, pk=pk)
 
     if request.method == "PATCH":
-        # Check if borrowing has already been returned
         if borrowing.actual_returning_date:
             return Response(
                 {"detail": "Borrowing has already been returned."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        # Update the borrowing instance
+
         borrowing.actual_returning_date = timezone.now().date()
         borrowing.save()
 
-        # Add 1 to book inventory
         borrowing.book.inventory += 1
         borrowing.book.save()
 
-        # Serialize and return response
+        if borrowing.actual_returning_date > borrowing.expected_returning_date:
+            days_overdue = (
+                borrowing.actual_returning_date
+                - borrowing.expected_returning_date
+            ).days
+            fine_amount = (
+                days_overdue
+                * borrowing.book.daily_fee
+                * settings.FINE_MULTIPLIER
+            )
+
+            create_payment_session(
+                borrowing,
+                request,
+                payment_type=Payment.Type.FINE,
+                fine_amount=fine_amount,
+            )
+
         serializer = BorrowingReadSerializer(borrowing)
         return Response(serializer.data)
 
