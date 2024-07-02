@@ -7,14 +7,19 @@ from borrowings.models import Payment
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
-def create_payment_session(borrowing, request):
+def create_payment_session(
+    borrowing, request, payment_type=Payment.Type.PAYMENT, fine_amount=None
+):
     try:
-        days_borrowed = (
-            borrowing.expected_returning_date - borrowing.borrowing_date
-        ).days
-        total_price = Decimal(borrowing.book.daily_fee) * Decimal(
-            days_borrowed
-        )
+        if payment_type == Payment.Type.FINE and fine_amount is not None:
+            total_price = fine_amount
+        else:
+            days_borrowed = (
+                borrowing.expected_returning_date - borrowing.borrowing_date
+            ).days
+            total_price = Decimal(borrowing.book.daily_fee) * Decimal(
+                days_borrowed
+            )
 
         success_url = (
             request.build_absolute_uri(reverse("payment-success"))
@@ -46,7 +51,7 @@ def create_payment_session(borrowing, request):
 
         payment = Payment.objects.create(
             status=Payment.Status.PENDING,
-            type=Payment.Type.PAYMENT,
+            type=payment_type,
             borrowing=borrowing,
             session_url=checkout_session.url,
             session_id=checkout_session.id,
