@@ -1,18 +1,28 @@
 import stripe
 from decimal import Decimal
 from django.conf import settings
+from django.urls import reverse
 from borrowings.models import Payment
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
-def create_payment_session(borrowing):
+def create_payment_session(borrowing, request):
     try:
         days_borrowed = (
             borrowing.expected_returning_date - borrowing.borrowing_date
         ).days
         total_price = Decimal(borrowing.book.daily_fee) * Decimal(
             days_borrowed
+        )
+
+        success_url = (
+            request.build_absolute_uri(reverse("payment-success"))
+            + "?session_id={CHECKOUT_SESSION_ID}"
+        )
+        cancel_url = (
+            request.build_absolute_uri(reverse("payment-cancel"))
+            + "?session_id={CHECKOUT_SESSION_ID}"
         )
 
         checkout_session = stripe.checkout.Session.create(
@@ -30,8 +40,8 @@ def create_payment_session(borrowing):
                 },
             ],
             mode="payment",
-            success_url="http://localhost:8000/success",
-            cancel_url="http://localhost:8000/cancel",
+            success_url=success_url,
+            cancel_url=cancel_url,
         )
 
         payment = Payment.objects.create(

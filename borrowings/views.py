@@ -49,7 +49,7 @@ class BorrowingCreateView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         borrowing = serializer.save(user=self.request.user)
-        create_payment_session(borrowing)
+        create_payment_session(borrowing, self.request)
 
 
 @api_view(["PATCH"])
@@ -97,3 +97,47 @@ class PaymentDetailView(generics.RetrieveUpdateDestroyAPIView):
             return Payment.objects.all()
         else:
             return Payment.objects.filter(user=self.request.user)
+
+
+@api_view(["GET"])
+def payment_success(request):
+    session_id = request.query_params.get("session_id")
+    if not session_id:
+        return Response(
+            {"error": "Session ID not provided"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        payment = Payment.objects.get(session_id=session_id)
+        payment.status = Payment.Status.PAID
+        payment.save()
+        return Response(
+            {"message": "Payment successful"}, status=status.HTTP_200_OK
+        )
+    except Payment.DoesNotExist:
+        return Response(
+            {"error": "Invalid session ID"}, status=status.HTTP_404_NOT_FOUND
+        )
+
+
+@api_view(["GET"])
+def payment_cancel(request):
+    session_id = request.query_params.get("session_id")
+    if not session_id:
+        return Response(
+            {"error": "Session ID not provided"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        payment = Payment.objects.get(session_id=session_id)
+        payment.status = Payment.Status.PENDING
+        payment.save()
+        return Response(
+            {"message": "Payment cancelled"}, status=status.HTTP_200_OK
+        )
+    except Payment.DoesNotExist:
+        return Response(
+            {"error": "Invalid session ID"}, status=status.HTTP_404_NOT_FOUND
+        )
