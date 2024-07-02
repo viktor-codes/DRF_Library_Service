@@ -19,7 +19,7 @@ class BorrowingListView(generics.ListAPIView):
         if not user.is_staff:
             queryset = queryset.filter(user=user)
 
-        user_id = self.request.query_params.get('user_id')
+        user_id = self.request.query_params.get("user_id")
         if user.is_staff and user_id:
             queryset = queryset.filter(user_id=user_id)
 
@@ -46,15 +46,17 @@ class BorrowingCreateView(generics.CreateAPIView):
         serializer.save(user=self.request.user)
 
 
-@api_view(['PATCH'])
+@api_view(["PATCH"])
 def return_borrowing(request, pk):
     borrowing = get_object_or_404(Borrowing, pk=pk)
 
-    if request.method == 'PATCH':
+    if request.method == "PATCH":
         # Check if borrowing has already been returned
         if borrowing.actual_returning_date:
-            return Response({"detail": "Borrowing has already been returned."}, status=status.HTTP_400_BAD_REQUEST)
-
+            return Response(
+                {"detail": "Borrowing has already been returned."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         # Update the borrowing instance
         borrowing.actual_returning_date = timezone.now().date()
         borrowing.save()

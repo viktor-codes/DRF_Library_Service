@@ -1,5 +1,6 @@
 from pathlib import Path
 from datetime import timedelta
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / "subdir".
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -9,7 +10,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-4^7+18&9y4_hl0kk$u=+di663*-2w(cufb84nl909xi7l5aa)w"
+SECRET_KEY = (
+    "django-insecure-4^7+18&9y4_hl0kk$u=+di663*-2w(cufb84nl909xi7l5aa)w"
+)
 
 # SECURITY WARNING: don"t run with debug turned on in production!
 DEBUG = True
@@ -28,15 +31,13 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-
     "drf_spectacular",
-
     "rest_framework",
     "rest_framework_simplejwt",
-
     "books",
     "users",
     "borrowings",
+    "django_celery_beat",
 ]
 
 MIDDLEWARE = [
@@ -133,4 +134,17 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": False,
+}
+
+CELERY_BROKER_URL = "redis://localhost:6379/0"
+CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = "UTC"
+CELERY_BEAT_SCHEDULE = {
+    "check-borrowings-overdue": {
+        "task": "borrowings.tasks.check_borrowings_overdue",
+        "schedule": crontab(hour=10, minute=0),
+    },
 }

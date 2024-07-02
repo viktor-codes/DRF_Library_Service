@@ -20,13 +20,13 @@ class Borrowing(models.Model):
     class Meta:
         constraints = [
             CheckConstraint(
-                check=Q(borrowing_date__lte=F('expected_returning_date')),
-                name='borrow_date_before_or_equal_expected'
+                check=Q(borrowing_date__lte=F("expected_returning_date")),
+                name="borrow_date_before_or_equal_expected",
             ),
             CheckConstraint(
-                check=Q(actual_returning_date__gte=F('borrowing_date')),
-                name='actual_return_date_after_borrow_date'
-            )
+                check=Q(actual_returning_date__gte=F("borrowing_date")),
+                name="actual_return_date_after_borrow_date",
+            ),
         ]
 
     def __str__(self):
@@ -34,7 +34,16 @@ class Borrowing(models.Model):
 
 
 @receiver(post_save, sender=Borrowing)
-def send_notification_on_borrowing_creation(sender, instance, created, **kwargs):
+def send_notification_on_borrowing_creation(
+    sender, instance, created, **kwargs
+):
     if created:
-        message = f"New borrowing created:\nBook: {instance.book.title}\nUser: {instance.user}\nBorrowing Date: {instance.borrowing_date}\nExpected Returning Date: {instance.expected_returning_date}"
+        message = (
+            f"New borrowing created:\n"
+            f"Book: {instance.book.title}\n"
+            f"User: {instance.user}\n"
+            f"Borrowing Date: {instance.borrowing_date}\n"
+            f"Expected Returning Date: {instance.expected_returning_date}"
+        )
+
         send_message(message)
