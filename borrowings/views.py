@@ -10,6 +10,7 @@ from .serializers import (
     BorrowingCreateSerializer,
     PaymentSerializer,
 )
+from helpers.stripe_helper import create_payment_session
 
 
 class BorrowingListView(generics.ListAPIView):
@@ -47,7 +48,8 @@ class BorrowingCreateView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        borrowing = serializer.save(user=self.request.user)
+        create_payment_session(borrowing)
 
 
 @api_view(["PATCH"])
