@@ -1,6 +1,6 @@
 from django.utils import timezone
 from django.conf import settings
-from rest_framework import status, permissions, viewsets, mixins
+from rest_framework import status, viewsets, mixins
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
@@ -34,9 +34,6 @@ class BorrowingViewSet(
 
     def perform_create(self, serializer):
         borrowing = serializer.save(user=self.request.user)
-
-        # Reduce book inventory by 1
-        borrowing.book.inventory -= 1
         borrowing.book.save()
 
         create_payment_session(borrowing, self.request)
@@ -111,7 +108,6 @@ class PaymentViewSet(
 ):
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
-    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         if self.request.user.is_staff:
@@ -132,8 +128,10 @@ class PaymentViewSet(
             payment = Payment.objects.get(session_id=session_id)
             payment.status = Payment.Status.PAID
             payment.save()
-            message = f"Payment successful for borrowing \
-                of book {payment.borrowing.book.title}"
+            message = (
+                f"Payment successful for borrowing"
+                f"of book {payment.borrowing.book.title}"
+            )
             send_message(message)
             return Response(message, status=status.HTTP_200_OK)
         except Payment.DoesNotExist:
@@ -155,9 +153,12 @@ class PaymentViewSet(
             payment = Payment.objects.get(session_id=session_id)
             payment.status = Payment.Status.PENDING
             payment.save()
-            return Response(
-                {"message": "Payment cancelled"}, status=status.HTTP_200_OK
+            message = (
+                "Payment has been cancelled. "
+                "You can complete the payment within "
+                "the next 24 hours using the same session link."
             )
+            return Response(message, status=status.HTTP_200_OK)
         except Payment.DoesNotExist:
             return Response(
                 {"error": "Invalid session ID"},
