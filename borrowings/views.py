@@ -1,19 +1,20 @@
-from django.conf import settings
 from django.utils import timezone
-from rest_framework import generics, status, permissions
+from django.conf import settings
+from rest_framework import status, permissions, viewsets, mixins
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.decorators import api_view
+
+from rest_framework.decorators import action
+from helpers.stripe_helper import create_payment_session
+from helpers.telegram_helper import send_message
+
 from .models import Borrowing, Payment
+
 from .serializers import (
     BorrowingReadSerializer,
     BorrowingCreateSerializer,
     PaymentSerializer,
 )
-from rest_framework import viewsets, mixins
-from rest_framework.decorators import action
-from helpers.stripe_helper import create_payment_session
-from helpers.telegram_helper import send_message
 
 
 class BorrowingViewSet(
@@ -102,18 +103,12 @@ class BorrowingViewSet(
         return Response(serializer.data)
 
 
-class PaymentListCreateView(generics.ListCreateAPIView):
-    queryset = Payment.objects.all()
-    serializer_class = PaymentSerializer
-
-    def get_queryset(self):
-        if self.request.user.is_staff:
-            return Payment.objects.all()
-        else:
-            return Payment.objects.filter(user=self.request.user)
-
-
-class PaymentDetailView(generics.RetrieveUpdateDestroyAPIView):
+class PaymentViewSet(
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    viewsets.GenericViewSet,
+):
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -124,50 +119,47 @@ class PaymentDetailView(generics.RetrieveUpdateDestroyAPIView):
         else:
             return Payment.objects.filter(user=self.request.user)
 
+    @action(detail=False, methods=["GET"], url_path="success")
+    def payment_success(self, request):
+        session_id = request.query_params.get("session_id")
+        if not session_id:
+            return Response(
+                {"error": "Session ID not provided"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-@api_view(["GET"])
-def payment_success(request):
-    session_id = request.query_params.get("session_id")
-    if not session_id:
-        return Response(
-            {"error": "Session ID not provided"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    try:
-        payment = Payment.objects.get(session_id=session_id)
-        payment.status = Payment.Status.PAID
-        payment.save()
-        message = (
-            f"Payment successful for borrowing \
+        try:
+            payment = Payment.objects.get(session_id=session_id)
+            payment.status = Payment.Status.PAID
+            payment.save()
+            message = f"Payment successful for borrowing \
                 of book {payment.borrowing.book.title}"
-        )
-        send_message(message)
-        return Response(message, status=status.HTTP_200_OK)
-    except Payment.DoesNotExist:
-        return Response(
-            {"error": "Invalid session ID"}, status=status.HTTP_404_NOT_FOUND
-        )
+            send_message(message)
+            return Response(message, status=status.HTTP_200_OK)
+        except Payment.DoesNotExist:
+            return Response(
+                {"error": "Invalid session ID"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
+    @action(detail=False, methods=["GET"], url_path="cancel")
+    def payment_cancel(self, request):
+        session_id = request.query_params.get("session_id")
+        if not session_id:
+            return Response(
+                {"error": "Session ID not provided"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-@api_view(["GET"])
-def payment_cancel(request):
-    session_id = request.query_params.get("session_id")
-    if not session_id:
-        return Response(
-            {"error": "Session ID not provided"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    try:
-        payment = Payment.objects.get(session_id=session_id)
-        payment.status = Payment.Status.PENDING
-        payment.save()
-        
-        return Response(
-            {"message": "Payment cancelled"}, status=status.HTTP_200_OK
-        )
-    except Payment.DoesNotExist:
-        return Response(
-            {"error": "Invalid session ID"}, status=status.HTTP_404_NOT_FOUND
-        )
+        try:
+            payment = Payment.objects.get(session_id=session_id)
+            payment.status = Payment.Status.PENDING
+            payment.save()
+            return Response(
+                {"message": "Payment cancelled"}, status=status.HTTP_200_OK
+            )
+        except Payment.DoesNotExist:
+            return Response(
+                {"error": "Invalid session ID"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
