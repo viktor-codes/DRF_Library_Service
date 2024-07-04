@@ -18,7 +18,7 @@ def create_payment_session(
                 borrowing.expected_returning_date - borrowing.borrowing_date
             ).days
             total_price = Decimal(borrowing.book.daily_fee) * Decimal(
-                days_borrowed
+                days_borrowed + 1
             )
 
         success_url = (

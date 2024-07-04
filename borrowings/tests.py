@@ -6,6 +6,13 @@ from borrowings.models import Borrowing, Payment
 from rest_framework.test import APIClient
 from rest_framework import status
 
+from unittest.mock import patch, MagicMock
+from decimal import Decimal
+
+from datetime import date, timedelta
+from django.urls import reverse
+
+from helpers.stripe_helper import create_payment_session
 
 BORROWINGS_URL = "/api/borrowings/"
 PAYMENTS_URL = "/api/payments/"
@@ -158,9 +165,7 @@ class PaymentViewSetTest(TestCase):
         self.client.force_authenticate(user=self.regular_user)
         response = self.client.get(PAYMENTS_URL)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            len(response.data), 1
-        )  # Regular user can only see their own payments
+        self.assertEqual(len(response.data), 1)
 
     def test_payment_success(self):
         response = self.client.get(
@@ -177,3 +182,81 @@ class PaymentViewSetTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.payment.refresh_from_db()
         self.assertEqual(self.payment.status, Payment.Status.PENDING)
+
+
+class PaymentSessionTest(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create(
+            password="userpass", email="test@example.com"
+        )
+        self.book = Book.objects.create(
+            title="Test Book",
+            author="Test Author",
+            daily_fee=Decimal("2.00"),
+            inventory=10,
+        )
+        self.borrowing = Borrowing.objects.create(
+            user=self.user,
+            book=self.book,
+            borrowing_date=date.today(),
+            expected_returning_date=date.today() + timedelta(days=6),
+        )
+
+    @patch("stripe.checkout.Session.create")
+    def test_create_payment_session_borrowing_fee(self, mock_create_session):
+        # Mock Stripe checkout session creation
+        mock_session = MagicMock()
+        mock_session.url = "https://checkout.stripe.com/pay/cs_test_123"
+        mock_session.id = "cs_test_123"
+        mock_create_session.return_value = mock_session
+
+        book = self.book
+        borrowing = self.borrowing
+
+        request = MagicMock()
+        request = MagicMock()
+        url_map = {
+            reverse(
+                "borrowings:payments-payment-success"
+            ): "https://localhost/api/payments/success",
+            reverse(
+                "borrowings:payments-payment-cancel"
+            ): "https://localhost/api/payments/cancel",
+        }
+        request.build_absolute_uri.side_effect = lambda path: url_map.get(
+            path, f"https://localhost{path}"
+        )
+
+        # Call the function and assert results
+        payment = create_payment_session(borrowing, request)
+        self.assertIsNotNone(payment)
+        self.assertEqual(payment.status, Payment.Status.PENDING)
+        self.assertEqual(payment.type, Payment.Type.PAYMENT)
+        self.assertEqual(payment.money_to_pay, Decimal("14.00"))
+        self.assertEqual(
+            payment.session_url, "https://checkout.stripe.com/pay/cs_test_123"
+        )
+        self.assertEqual(payment.session_id, "cs_test_123")
+
+        mock_create_session.assert_called_once_with(
+            payment_method_types=["card"],
+            line_items=[
+                {
+                    "price_data": {
+                        "currency": "usd",
+                        "product_data": {"name": book.title},
+                        "unit_amount": 1400,
+                    },
+                    "quantity": 1,
+                }
+            ],
+            mode="payment",
+            success_url=(
+                "https://localhost/api/payments/"
+                "success?session_id={CHECKOUT_SESSION_ID}"
+            ),
+            cancel_url=(
+                "https://localhost/api/payments/"
+                "cancel?session_id={CHECKOUT_SESSION_ID}"
+            ),
+        )

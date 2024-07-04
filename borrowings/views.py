@@ -130,7 +130,7 @@ class PaymentViewSet(
             payment.save()
             message = (
                 f"Payment successful for borrowing"
-                f"of book {payment.borrowing.book.title}"
+                f" of book {payment.borrowing.book.title}"
             )
             send_message(message)
             return Response(message, status=status.HTTP_200_OK)
