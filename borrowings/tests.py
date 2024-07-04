@@ -204,7 +204,7 @@ class PaymentSessionTest(TestCase):
 
     @patch("stripe.checkout.Session.create")
     def test_create_payment_session_borrowing_fee(self, mock_create_session):
-        # Mock Stripe checkout session creation
+
         mock_session = MagicMock()
         mock_session.url = "https://checkout.stripe.com/pay/cs_test_123"
         mock_session.id = "cs_test_123"
@@ -227,7 +227,6 @@ class PaymentSessionTest(TestCase):
             path, f"https://localhost{path}"
         )
 
-        # Call the function and assert results
         payment = create_payment_session(borrowing, request)
         self.assertIsNotNone(payment)
         self.assertEqual(payment.status, Payment.Status.PENDING)
